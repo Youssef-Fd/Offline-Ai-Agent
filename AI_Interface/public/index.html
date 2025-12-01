@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C/C++ Code Assistant</title>
+    <style>
+        :root {
+            --bg: #202123;
+            --panel: #444654;
+            --panel-2: #40414f;
+            --text: #ececf1;
+            --muted: #8e8ea0;
+            --accent: #10a37f;
+            --accent-strong: #0d8a6b;
+            --border: #2f2f2f;
+            --sidebar: #000000;
+        }
+
+        /* Light theme palette */
+        :root[data-theme="light"] {
+            --bg: #ffffff;
+            --panel: #f7f7f8;
+            --panel-2: #f0f0f0;
+            --text: #374151;
+            --muted: #6b7280;
+            --accent: #10a37f;
+            --accent-strong: #0d8a6b;
+            --border: #e5e7eb;
+            --sidebar: #f9fafb;
+        }
+
+        /* Light mode form inputs */
+        :root[data-theme="light"] .webhook-input { background: #ffffff; border: 1px solid #d1d5db; color: #374151; }
+        :root[data-theme="light"] .webhook-input::placeholder { color: #9ca3af; }
+        :root[data-theme="light"] .webhook-input:focus { border-color: #10a37f; box-shadow: 0 0 0 3px rgba(16,163,127,.12); outline: none; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .sidebar {
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            display: flex;
+            gap: 8px;
+        }
+
+        .sidebar-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .side-btn {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.06s ease;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .side-btn:hover {
+            background: #2a2b32;
+            border-color: #3a3b42;
+        }
+        .side-btn:active {
+            transform: translateY(1px);
+        }
+
+        .sidebar-section-title {
+            margin: 8px 4px 4px;
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        /* Context menu */
+        .context-menu { position: fixed; z-index: 2000; background: var(--panel-2); border: 1px solid #565869; border-radius: 10px; padding: 6px; min-width: 220px; box-shadow: 0 8px 28px rgba(0,0,0,0.4); display: none; }
+        .menu-item { display: flex; align-items: center; gap: 8px; padding: 10px 10px; border-radius: 8px; color: var(--text); cursor: pointer; user-select: none; }
+        .menu-item:hover { background: #2a2b32; }
+        .menu-item .mi-icon { width: 18px; text-align: center; opacity: .9; }
+        .menu-sep { height: 1px; background: #565869; margin: 6px 4px; opacity: .6; }
+        /* Only Rename and Delete; same color */
+        .menu-item.rename { color: white; }
+        .menu-item.delete { color: white; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2100; }
+        .modal { background: var(--panel-2); border: 1px solid #565869; border-radius: 12px; width: min(520px, 90vw); padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+        .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+        .modal-body { color: var(--muted); margin-bottom: 16px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        .btn { border: 1px solid #6a6d80; background: transparent; color: var(--text); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+        .btn:hover { background: #2a2b32; }
+        .btn.danger { border-color: #ef4444; background: #3a1f1f; color: #f87171; }
+        .btn.danger:hover { background: #4b2323; }
+
+        :root[data-theme="light"] .context-menu { background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 10px 25px rgba(0,0,0,.1); }
+        :root[data-theme="light"] .modal { background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 20px 25px rgba(0,0,0,.1); }
+        :root[data-theme="light"] .btn:hover { background: #f3f4f6; }
+        :root[data-theme="light"] .btn.danger:hover { background: #fef2f2; }
+
+        .chat-history {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .chat-item {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease;
+            text-align: left;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .chat-item:hover { background: #2a2b32; border-color: #3a3b42; }
+        .chat-item.active { border-color: var(--accent); }
+        .chat-more { background: transparent; border: none; color: var(--muted); padding: 4px 8px; border-radius: 6px; cursor: pointer; margin-left: 8px; transition: all 0.15s ease; font-weight: 700; }
+        .chat-item:hover .chat-more { color: var(--text); background: #2a2b32; }
+        .chat-more:hover { background: #3a3b42; }
+        :root[data-theme="light"] .chat-item:hover { background: #f3f4f6; }
+        :root[data-theme="light"] .chat-more { color: #6b7280; }
+        :root[data-theme="light"] .chat-item:hover .chat-more { color: #374151; background: #e5e7eb; }
+
+        .chat-delete {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 8px;
+            transition: all 0.15s ease;
+        }
+        .chat-item:hover .chat-delete { color: var(--text); background: #2a2b32; }
+        .chat-delete:hover { color: #ff7b7b; background: #3a1f1f; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Greeting / Welcome */
+        .greeting-section {
+            display: grid;
+            justify-items: center;
+            align-content: center;
+            min-height: calc(100vh - 240px);
+            padding: 40px 16px 12px;
+            gap: 12px;
+        }
+
+        .greeting-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .greeting-subtitle {
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-align: center;
+            max-width: 800px;
+        }
+
+        /* Hero prompt pill */
+        .hero-prompt {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: min(900px, 92vw);
+            background: #2a2b32;
+            border: 1px solid #3a3b42;
+            border-radius: 999px;
+            padding: 10px 14px;
+            box-shadow: 0 10px 26px rgba(0,0,0,.35);
+        }
+        .hero-icon { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items:center; justify-content:center; background: #3a3b42; color: var(--text); flex: 0 0 auto; font-weight: 700; }
+        .hero-input {
+            flex: 1; background: transparent; border: none; color: var(--text);
+            font-size: 16px; outline: none; padding: 6px 2px;
+        }
+        .hero-actions { display: inline-flex; gap: 6px; }
+        .hero-btn { background: transparent; border: none; color: var(--muted); width: 36px; height: 36px; border-radius: 999px; cursor: pointer; }
+        .hero-btn:hover { background: #3a3b42; color: var(--text); }
+
+        /* Hero file preview */
+        .hero-preview { width:min(900px,92vw); padding: 8px 0 0; }
+        .hero-preview .file-preview-list { gap: 4px; }
+
+        /* Home recent chats (stacked list) */
+        .recent-heading { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 8px 0 2px; width:min(900px,92vw); padding: 0 16px; }
+        .recent-list { width: min(900px, 92vw); display: grid; gap: 6px; padding: 0 16px; }
+        .recent-item { display:flex; align-items:center; gap:10px; background: transparent; border:1px solid transparent; border-radius: 10px; padding: 8px 10px; cursor:pointer; }
+        .recent-item:hover { background:#2a2b32; border-color:#3a3b42; }
+        .recent-bullet { width:22px; height:22px; border-radius:6px; background:#3a3b42; display:inline-flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:11px; flex:0 0 auto; }
+        .recent-title { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+        .recent-empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 12px 0;
+        }
+
+        /* Webhook */
+        .webhook-config {
+            background: var(--panel-2);
+            border: 1px solid #565869;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px auto;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .webhook-input {
+            width: 100%;
+            background: #4b4d5c;
+            border: 1px solid #6a6d80;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .webhook-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Messages */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0 120px;
+            background:
+              radial-gradient(900px 400px at 70% -10%, rgba(16,163,127,0.08), transparent 60%),
+              var(--bg);
+            box-shadow: inset 0 8px 10px -10px rgba(0,0,0,0.28);
+        }
+
+        .messages-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .message-row {
+            display: flex;
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        .message-row.assistant { justify-content: flex-start; }
+        .message-row.user { justify-content: flex-end; }
+        .message-row.user .inner { flex-direction: row-reverse; }
+
+        .message-row .inner {
+            display: flex;
+            gap: 16px;
+            width: auto;
+            max-width: 800px;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .avatar.assistant { background: #19c37d; color: #07211a; }
+        .avatar.user { background: #6c6e79; color: #0e0f12; }
+        .avatar.system { background: #3b82f6; color: #06182f; }
+        .avatar.error { background: #ef4444; color: #2b0b0b; }
+
+        /* Hide assistant avatar */
+        .message-row.assistant .avatar { display: none; }
+
+        .message-bubble {
+            padding: 16px 18px;
+            border-radius: 12px;
+            line-height: 1.65;
+            white-space: pre-wrap;
+            max-width: 760px;
+            font-size: 15px;
+        }
+
+        .message-row.assistant .message-bubble { 
+            background: transparent; 
+            padding: 8px 0;
+            color: var(--text);
+            border-radius: 0;
+        }
+        .message-row.user .message-bubble {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 12px 18px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+        }
+        .message-row.system .message-bubble {
+            background: #21324a;
+            border: 1px solid #325684;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        /* File list embed */
+        .file-list-display {
+            background: transparent;
+            border-radius: 8px;
+            padding: 8px 0;
+            border: 1px solid var(--border);
+        }
+        .file-item-display { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid var(--border); }
+        .file-item-display:first-child { border-top: none; }
+        .file-info-display { display: flex; align-items: center; gap: 8px; color: var(--text); }
+        .file-icon-display { font-size: 16px; }
+        .remove-btn-display { background: #d73a49; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .remove-btn-display:hover { background: #cb2431; }
+
+        /* Composer */
+        .composer {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.35) 30%, var(--bg) 30%);
+            padding: 16px 12px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .composer-inner {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* first-time hint removed */
+
+        .input-container {
+            background: var(--panel-2);
+            border: 1px solid #565869;
+            border-radius: 16px;
+            display: flex;
+            align-items: flex-end;
+            padding: 10px 12px;
+            gap: 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        }
+
+        .input-container:focus-within { border-color: var(--accent); box-shadow: 0 8px 28px rgba(16,163,127,0.18); }
+
+        .attach-btn, .mic-btn, .send-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .attach-btn:hover, .mic-btn:hover, .send-btn:hover { background: #4a4c5b; color: var(--text); }
+        .send-btn.active { background: var(--accent); color: white; }
+        .send-btn.active:hover { background: var(--accent-strong); }
+
+        .message-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #ececf1;
+            font-size: 15px;
+            resize: none;
+            outline: none;
+            min-height: 24px;
+            max-height: 160px;
+            line-height: 24px;
+            font-family: inherit;
+        }
+
+        .message-input::placeholder { color: var(--muted); }
+
+        .composer-hint {
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        /* Added file preview styles */
+        .file-preview {
+            display: none;
+            background: var(--panel-1);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+        }
+
+        .file-preview.visible {
+            display: block;
+        }
+
+        .file-preview-header {
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-icon {
+            color: var(--accent);
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .file-name {
+            color: var(--text);
+            font-weight: 500;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .file-size {
+            color: var(--muted);
+            font-size: 11px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 16px;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .file-remove:hover {
+            background: #4a4c5b;
+            color: var(--text);
+        }
+
+        /* Status */
+        .status-message {
+            position: relative;
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            display: none;
+            margin: 8px 0;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+            font-size: 14px;
+        }
+        .status-success { 
+            background: #059669; 
+            color: white; 
+        }
+        .status-error { 
+            background: #dc2626; 
+            color: white; 
+        }
+
+        /* Error message box styling */
+        .error-message-box {
+            background: #4d1a1a;
+            border: 1px solid #ef4444;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px auto;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .error-icon {
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .error-content {
+            flex: 1;
+            color: #fecaca;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .retry-btn {
+            background: white;
+            color: #1f2937;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .retry-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Light mode error box */
+        :root[data-theme="light"] .error-message-box {
+            background: #fee2e2;
+            border-color: #f87171;
+        }
+
+        :root[data-theme="light"] .error-content {
+            color: #7f1d1d;
+        }
+
+        :root[data-theme="light"] .retry-btn {
+            background: #1f2937;
+            color: white;
+        }
+
+        :root[data-theme="light"] .retry-btn:hover {
+            background: #374151;
+        }
+
+        /* File chips above user messages */
+        .file-chips {
+            display: flex;
+            gap: 8px;
+            padding: 0 16px 8px;
+            max-width: 800px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        .file-chip {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            min-width: 120px;
+        }
+
+        .file-chip-icon {
+            width: 24px;
+            height: 24px;
+            background: #fbbf24;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #92400e;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .file-chip-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-chip-name {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-chip-type {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* Light mode adjustments for file chips */
+        :root[data-theme="light"] .file-chip {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+
+        :root[data-theme="light"] .file-chip-icon {
+            background: #fbbf24;
+            color: #92400e;
+        }
+
+        /* File upload preview in composer */
+        .file-preview-container {
+            display: none;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 12px;
+        }
+
+        .file-preview-container.visible {
+            display: block;
+        }
+
+        .file-preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .file-preview-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .clear-all-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .clear-all-btn:hover {
+            background: var(--panel);
+            color: var(--text);
+        }
+
+        .file-preview-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .file-preview-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+
+        .file-preview-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-preview-icon {
+            color: var(--accent);
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .file-preview-name {
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-preview-size {
+            color: var(--muted);
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .file-preview-remove {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .file-preview-remove:hover {
+            color: #ef4444;
+            background: var(--panel-2);
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            color: var(--muted);
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--muted);
+            border-radius: 50%;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+            .messages-inner { max-width: 100%; padding: 0 12px; }
+            .message-bubble { max-width: 100%; font-size: 14px; }
+            .composer { padding: 12px 10px 14px; }
+            .composer-inner { max-width: 100%; }
+            .input-container { padding: 8px 10px; border-radius: 14px; }
+            .message-input { max-height: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <!-- Removed the duplicate "New chat" button from sidebar header -->
+            </div>
+            <div class="sidebar-actions">
+                <button class="side-btn" onclick="codeEditor.newChat()">+ New chat</button>
+                <button class="side-btn" onclick="codeEditor.toggleSettings()">⚙️ Settings</button>
+                <button class="side-btn" onclick="codeEditor.downloadResults()">⬇️ Download chat</button>
+                <button class="side-btn" onclick="codeEditor.refreshInterface()">🔄 Refresh</button>
+            </div>
+            <div class="sidebar-section-title">Chat history</div>
+            <div id="chatHistory" class="chat-history"></div>
+            <div class="sidebar-footer">
+                <!-- Removed "ChatGPT-style" text from footer -->
+                C/C++ Assistant UI
+            </div>
+        </aside>
+        <main class="main">
+            <!-- Greeting / Welcome -->
+            <div class="greeting-section" id="greeting">
+                <div class="user-avatar" style="display:none"></div>
+                <div class="greeting-title">How can I help you today?</div>
+                <div class="greeting-subtitle">Upload code files or ask for help with debugging, optimization, documentation and more.</div>
+                <div class="hero-prompt">
+                    <button class="hero-btn" id="heroAttach" title="Attach files">+</button>
+                    <input id="heroInput" class="hero-input" placeholder="Ask anything" />
+                    <div class="hero-actions">
+                        <button class="hero-btn" title="Voice">🎤</button>
+                        <button class="hero-btn" id="heroSend" title="Send">➤</button>
+                    </div>
+                </div>
+                <div id="heroPreview" class="hero-preview" style="display:none;">
+                    <div class="file-preview-header">
+                        <div class="file-preview-title">📎 Attached files</div>
+                        <button class="clear-all-btn" onclick="codeEditor.clearAllFiles()">Clear all</button>
+                    </div>
+                    <div id="heroPreviewList" class="file-preview-list"></div>
+                </div>
+                <div id="recentHeading" class="recent-heading" style="display:none;">Recent chats</div>
+                <div id="recentList" class="recent-list"></div>
+            </div>
+
+            <!-- Webhook Configuration -->
+            <!-- for the http url, just change the "localhost" by your address LAN so that multiple pcs in your network can access it -->
+            <div class="webhook-config" id="webhookConfig" style="display: none;">
+                <label style="color: var(--text); margin-bottom: 8px; display: block;">n8n Webhook URL:</label>
+                <input 
+                    type="url" 
+                    id="webhookUrl" 
+                    class="webhook-input"
+                    placeholder="https://your-n8n-instance.com/webhook/your-webhook-id"
+                    value="http://localhost:5678/webhook/upload-code" 
+                >
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display:flex; align-items:center; gap:8px;">
+                    <label style="color: var(--text);">Theme:</label>
+                    <button class="side-btn" id="themeToggle" style="flex:0 0 auto;" onclick="codeEditor.toggleTheme()">🌙 Dark mode</button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="messages-inner"></div>
+            </div>
+
+            <!-- Composer -->
+            <div class="composer" id="bottomComposer" style="display:none;">
+                <div class="composer-inner">
+                    <!-- File preview container -->
+                    <div id="filePreviewContainer" class="file-preview-container">
+                        <div class="file-preview-header">
+                            <div class="file-preview-title">📎 Attached files</div>
+                            <button class="clear-all-btn" onclick="codeEditor.clearAllFiles()">Clear all</button>
+                        </div>
+                        <div id="filePreviewList" class="file-preview-list">
+                            <!-- Files will be rendered here -->
+                        </div>
+                    </div>
+                    
+                    <div class="input-container">
+                        <button class="attach-btn" title="Attach files" onclick="document.getElementById('fileInput').click()">📎</button>
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Message the assistant"
+                            rows="1"
+                            onkeydown="codeEditor.handleKeyDown(event)"
+                            oninput="codeEditor.adjustTextareaHeight(this)"
+                        ></textarea>
+                        <div class="input-actions">
+                            <button class="mic-btn" title="Voice">🎤</button>
+                            <button class="send-btn" id="sendBtn" title="Send" onclick="codeEditor.sendMessage()">➤</button>
+                        </div>
+                    </div>
+                    <div class="composer-hint">C/C++ Assistant can make mistakes. Check important info.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden File Input -->
+    <div class="hidden-inputs">
+        <input type="file" id="fileInput" multiple onchange="codeEditor.handleFiles(this.files)">
+    </div>
+
+    <!-- Status Message -->
+    <div class="status-message" id="statusMessage"></div>
+
+    <!-- Floating context menu -->
+    <div id="historyMenu" class="context-menu"></div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirmOverlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-title">Delete chat?</div>
+            <div class="modal-body" id="confirmBody">This will delete the selected chat.</div>
+            <div class="modal-actions">
+                <button class="btn" id="confirmCancel">Cancel</button>
+                <button class="btn danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="renameOverlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-title">Rename chat</div>
+            <div class="modal-body">
+                <input type="text" id="renameInput" class="webhook-input" placeholder="Enter new name">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" id="renameCancel">Cancel</button>
+                <button class="btn" id="renameSave">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class CodeEditorInterface {
+            constructor() {
+                this.files = [];
+                this.messages = [];
+                this.settingsVisible = false;
+                this.currentSessionId = null;
+                this.history = this.loadHistoryFromStorage();
+                this.isDarkMode = (localStorage.getItem('theme') || 'dark') !== 'light' ? true : false;
+                this.renameSessionId = null;
+                this.openMenuForSessionId = null;
+                this.isProcessing = false;
+                this.initializeInterface();
+            }
+
+            initializeInterface() {
+                this.adjustTextareaHeight(document.getElementById('messageInput'));
+                this.startupSession();
+                this.applyTheme();
+                this.renderChatHistory();
+                this.renderRecentList();
+                this.wireHeroPrompt();
+                this.registerGlobalShortcuts();
+            }
+
+            
+            getWebhookUrl() {
+                const input = document.getElementById('webhookUrl');
+                return input ? input.value.trim() : 'http://localhost:5678/webhook/upload-code';
+            }
+
+            quickInsert(text) {
+                const input = document.getElementById('messageInput');
+                input.value = text;
+                this.adjustTextareaHeight(input);
+                input.focus();
+            }
+
+            newChat() {
+                this.startNewSession();
+            }
+
+            showFileUpload() {
+                document.getElementById('fileInput').click();
+            }
+
+            showExamples() { this.addMessage('assistant', 'Try asking anything.'); }
+
+            clearChat() {
+                this.messages = [];
+                const container = document.querySelector('#chatMessages .messages-inner');
+                if (container) container.innerHTML = '';
+                this.showGreeting();
+                this.renderRecentList();
+            }
+
+            toggleSettings() {
+                this.settingsVisible = !this.settingsVisible;
+                document.getElementById('webhookConfig').style.display = this.settingsVisible ? 'block' : 'none';
+            }
+
+            downloadResults() {
+                if (this.messages.length === 0) {
+                    this.showStatus('No messages to download', 'error');
+                    return;
+                }
+                const content = this.messages.map(msg => `${msg.type.toUpperCase()}: ${msg.content}`).join('\n\n');
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'chat-history.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            refreshInterface() {
+                location.reload();
+            }
+
+            toggleTheme() {
+                this.isDarkMode = !this.isDarkMode;
+                localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
+                this.applyTheme();
+            }
+
+            applyTheme() {
+                const root = document.documentElement;
+                const toggle = document.getElementById('themeToggle');
+                if (this.isDarkMode) {
+                    root.setAttribute('data-theme','dark');
+                    if (toggle) toggle.textContent = '🌙 Dark mode';
+                } else {
+                    root.setAttribute('data-theme','light');
+                    if (toggle) toggle.textContent = '☀️ Light mode';
+                }
+            }
+
+            handleFiles(fileList) {
+                let addedFiles = [];
+                Array.from(fileList).forEach(file => {
+                    if (!this.files.find(f => f.name === file.name)) {
+                            this.files.push(file);
+                            addedFiles.push(file.name);
+                    }
+                });
+                if (addedFiles.length > 0) {
+                    this.showStatus(`Added ${addedFiles.length} file(s): ${addedFiles.join(', ')}`,'success');
+                }
+                this.updateFilePreview();
+            }
+
+            clearAllFiles() {
+                this.files = [];
+                this.updateFilePreview();
+            }
+
+            removeFile(index) {
+                const removed = this.files.splice(index, 1)[0];
+                if (removed) {
+                    this.showStatus(`Removed ${removed.name}`,'success');
+                }
+                this.updateFilePreview();
+            }
+
+            updateFilePreview() {
+                const previewContainer = document.getElementById('filePreviewContainer');
+                const fileList = document.getElementById('filePreviewList');
+                const heroPreview = document.getElementById('heroPreview');
+                const heroList = document.getElementById('heroPreviewList');
+                
+                if (this.files.length === 0) {
+                    previewContainer.classList.remove('visible');
+                    if (heroPreview) heroPreview.style.display = 'none';
+                    return;
+                }
+                
+                previewContainer.classList.add('visible');
+                fileList.innerHTML = '';
+                if (heroPreview) { heroPreview.style.display = 'block'; }
+                if (heroList) { heroList.innerHTML = ''; }
+                
+                this.files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-preview-item';
+                    
+                    const fileSize = this.formatFileSize(file.size);
+                    const fileExtension = file.name.split('.').pop().toUpperCase();
+                    
+                    fileItem.innerHTML = `
+                        <div class="file-preview-info">
+                            <span class="file-preview-icon">📄</span>
+                            <span class="file-preview-name">${file.name}</span>
+                            <span class="file-preview-size">${fileSize}</span>
+                        </div>
+                        <button class="file-preview-remove" onclick="codeEditor.removeFile(${index})" title="Remove file">×</button>
+                    `;
+                    
+                    fileList.appendChild(fileItem);
+                    if (heroList) {
+                        const heroItem = fileItem.cloneNode(true);
+                        const btn = heroItem.querySelector('button.file-preview-remove');
+                        if (btn) btn.setAttribute('onclick', `codeEditor.removeFile(${index})`);
+                        heroList.appendChild(heroItem);
+                    }
+                });
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            async sendMessage() {
+                if (this.isProcessing) return;
+                
+                const input = document.getElementById('messageInput');
+                const message = input.value.trim();
+                if (!message && this.files.length === 0) {
+                    this.showStatus('Please enter a message or upload files', 'error');
+                    return;
+                }
+                
+                this.isProcessing = true;
+                
+                // Store files before clearing them
+                const filesToSend = [...this.files];
+                
+                this.addMessage('user', message);
+                input.value = '';
+                this.adjustTextareaHeight(input);
+                
+                // Hide greeting when first message is sent and show bottom composer
+                const isFirst = this.messages.length === 0;
+                this.hideGreeting();
+                const bc = document.getElementById('bottomComposer');
+                if (bc) bc.style.display = 'block';
+                
+                // Clear files from preview after sending
+                this.files = [];
+                this.updateFilePreview();
+                
+                // Show typing indicator
+                this.showTypingIndicator();
+                
+                try {
+                    // Prepare files for upload
+                    const fileContents = [];
+                    if (filesToSend.length > 0) {
+                        for (const file of filesToSend) {
+                            const content = await this.readFileContent(file);
+                            fileContents.push({
+                                name: file.name,
+                                content: content,
+                                size: file.size,
+                                type: file.type || 'text/plain'
+                            });
+                        }
+                    }
+                    
+                    // Send request to our Express server (which proxies to n8n)
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chatInput: message,
+                            files: fileContents,
+                            sessionId: this.currentSessionId
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Hide typing indicator
+                    this.hideTypingIndicator();
+                    
+                    // Add assistant response
+                    if (data.success) {
+                        this.addMessage('assistant', data.response);
+                    } else {
+                        this.addMessage('assistant', 'Error: ' + (data.error || 'Unknown error'));
+                    }
+                    
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    this.hideTypingIndicator();
+                    this.addMessage('assistant', `Error: ${error.message}. Please check your connection.`);
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+
+            readFileContent(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                });
+            }
+
+            showGreeting() {
+                const greeting = document.getElementById('greeting');
+                if (greeting) {
+                    greeting.style.display = 'grid';
+                }
+                this.renderRecentList();
+            }
+
+            hideGreeting() {
+                const greeting = document.getElementById('greeting');
+                if (greeting) {
+                    greeting.style.display = 'none';
+                }
+            }
+
+            showTypingIndicator() {
+                const container = document.querySelector('#chatMessages .messages-inner');
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'message-row assistant';
+                typingIndicator.id = 'typingIndicator';
+                
+                const inner = document.createElement('div');
+                inner.className = 'inner';
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'typing-indicator';
+                bubble.innerHTML = `
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                    <span>Assistant is thinking...</span>
+                `;
+                
+                inner.appendChild(bubble);
+                typingIndicator.appendChild(inner);
+                container.appendChild(typingIndicator);
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                const typingIndicator = document.getElementById('typingIndicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+
+            addMessage(type, content) {
+                const message = { 
+                    type, 
+                    content, 
+                    timestamp: new Date(),
+                    files: type === 'user' ? [...this.files] : []
+                };
+                this.messages.push(message);
+                this.renderMessage(message);
+                this.scrollToBottom();
+                this.saveHistoryToStorage();
+                
+                // Hide greeting when we have messages
+                if (this.messages.length > 0) {
+                    this.hideGreeting();
+                }
+            }
+
+            renderMessage(message) {
+                const container = document.querySelector('#chatMessages .messages-inner');
+                const messageRow = document.createElement('div');
+                messageRow.className = `message-row ${message.type}`;
+                
+                const inner = document.createElement('div');
+                inner.className = 'inner';
+                
+                const avatar = document.createElement('div');
+                avatar.className = `avatar ${message.type}`;
+                avatar.textContent = message.type === 'user' ? 'U' : 'A';
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'message-bubble';
+                
+                // Add file chips if this is a user message with files
+                if (message.type === 'user' && message.files && message.files.length > 0) {
+                    const fileChips = document.createElement('div');
+                    fileChips.className = 'file-chips';
+                    
+                    message.files.forEach(file => {
+                        const chip = document.createElement('div');
+                        chip.className = 'file-chip';
+                        
+                        const icon = document.createElement('div');
+                        icon.className = 'file-chip-icon';
+                        icon.textContent = 'C';
+                        
+                        const info = document.createElement('div');
+                        info.className = 'file-chip-info';
+                        
+                        const name = document.createElement('div');
+                        name.className = 'file-chip-name';
+                        name.textContent = file.name;
+                        
+                        const type = document.createElement('div');
+                        type.className = 'file-chip-type';
+                        type.textContent = `${file.name.split('.').pop().toUpperCase()} ${this.formatFileSize(file.size)}`;
+                        
+                        info.appendChild(name);
+                        info.appendChild(type);
+                        chip.appendChild(icon);
+                        chip.appendChild(info);
+                        fileChips.appendChild(chip);
+                    });
+                    
+                    bubble.appendChild(fileChips);
+                }
+                
+                // Add message content
+                if (message.type === 'assistant') {
+                    const rich = this.renderContentWithCodeBlocks(message.content);
+                    bubble.appendChild(rich);
+                } else {
+                    const contentEl = document.createElement('div');
+                    contentEl.textContent = message.content;
+                    bubble.appendChild(contentEl);
+                }
+                
+                inner.appendChild(avatar);
+                inner.appendChild(bubble);
+                messageRow.appendChild(inner);
+                container.appendChild(messageRow);
+            }
+
+            scrollToBottom() {
+                const messages = document.getElementById('chatMessages');
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            showStatus(message, type = 'info') {
+                const status = document.getElementById('statusMessage');
+                if (!status) return;
+                status.textContent = message;
+                status.className = 'status-message';
+                if (type !== 'clear') {
+                    status.style.display = 'block';
+                    status.classList.add(`status-${type}`);
+                } else {
+                    status.style.display = 'none';
+                }
+            }
+
+            adjustTextareaHeight(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+            }
+
+            handleKeyDown(event) {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    this.sendMessage();
+                }
+            }
+
+            startupSession() {
+                this.startNewSession();
+            }
+
+            startNewSession() {
+                this.currentSessionId = Date.now().toString();
+                this.messages = [];
+                document.querySelector('#chatMessages .messages-inner').innerHTML = '';
+                this.files = [];
+                this.updateFilePreview();
+                this.showGreeting();
+                this.saveHistoryToStorage();
+                this.renderChatHistory();
+                this.renderRecentList();
+                const bc = document.getElementById('bottomComposer');
+                if (bc) bc.style.display = 'none';
+            }
+
+            loadHistoryFromStorage() {
+                try {
+                    return JSON.parse(localStorage.getItem('chatHistory') || '[]');
+                } catch (e) {
+                    console.error('Error loading history', e);
+                    return [];
+                }
+            }
+
+            saveHistoryToStorage() {
+                try {
+                    if (!this.messages || this.messages.length === 0) {
+                        // Do not persist empty placeholder sessions
+                        return;
+                    }
+                    const first = this.messages[0] || {};
+                    let derivedTitle = (first.content || '').trim();
+                    if (!derivedTitle && first.files && first.files.length) {
+                        const names = first.files.map(f => f.name).slice(0, 2).join(', ');
+                        derivedTitle = `Files: ${names}${first.files.length > 2 ? '…' : ''}`;
+                    }
+                    if (!derivedTitle) derivedTitle = 'New chat';
+
+                    const historyItem = {
+                        id: this.currentSessionId,
+                        title: derivedTitle.substring(0, 48) + (derivedTitle.length > 48 ? '…' : ''),
+                        timestamp: new Date(),
+                        messages: this.messages
+                    };
+                    const existingIndex = this.history.findIndex(item => item.id === this.currentSessionId);
+                    if (existingIndex >= 0) {
+                        this.history[existingIndex] = historyItem;
+                    } else {
+                        this.history.unshift(historyItem);
+                    }
+                    localStorage.setItem('chatHistory', JSON.stringify(this.history));
+                    this.renderChatHistory();
+                    this.renderRecentList();
+                } catch (e) {
+                    console.error('Error saving history', e);
+                }
+            }
+
+            renderChatHistory() {
+                const container = document.getElementById('chatHistory');
+                if (!container) return;
+                container.innerHTML = '';
+                this.history
+                  .filter(s => (s.title || '').toLowerCase() !== 'new chat' && (s.title || '').trim() !== '')
+                  .forEach(session => {
+                    const item = document.createElement('div');
+                    item.className = 'chat-item';
+                    if (session.id === this.currentSessionId) {
+                        item.classList.add('active');
+                    }
+                    item.innerHTML = `
+                        <div class="chat-title" onclick="codeEditor.loadSession('${session.id}')">${session.title}</div>
+                        <button class="chat-more" onclick="codeEditor.showHistoryMenu(event, '${session.id}')">⋮</button>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+
+            loadSession(sessionId) {
+                const session = this.history.find(item => item.id === sessionId);
+                if (session) {
+                    this.currentSessionId = sessionId;
+                    this.messages = session.messages || [];
+                    document.querySelector('#chatMessages .messages-inner').innerHTML = '';
+                    this.messages.forEach(msg => this.renderMessage(msg));
+                    this.scrollToBottom();
+                    this.renderChatHistory();
+                    
+                    // Show or hide greeting based on whether we have messages
+                    if (this.messages.length > 0) {
+                        this.hideGreeting();
+                    } else {
+                        this.showGreeting();
+                    }
+                    this.renderRecentList();
+                    // Focus appropriate input
+                    const bc = document.getElementById('bottomComposer');
+                    if (this.messages.length > 0 && bc) {
+                        bc.style.display = 'block';
+                        const mainInput = document.getElementById('messageInput');
+                        if (mainInput) mainInput.focus();
+                    } else {
+                        const heroInput = document.getElementById('heroInput');
+                        if (heroInput) heroInput.focus();
+                    }
+                }
+            }
+
+            showHistoryMenu(event, sessionId) {
+                event.stopPropagation();
+                this.openMenuForSessionId = sessionId;
+                const menu = document.getElementById('historyMenu');
+                menu.style.display = 'block';
+                menu.style.left = (event.pageX - 180) + 'px';
+                menu.style.top = (event.pageY + 5) + 'px';
+                menu.innerHTML = `
+                    <div class="menu-item rename" onclick="codeEditor.renameSession('${sessionId}')">
+                        <span class="mi-icon">✏️</span> Rename
+                    </div>
+                    <div class="menu-sep"></div>
+                    <div class="menu-item delete" onclick="codeEditor.confirmDeleteSession('${sessionId}')">
+                        <span class="mi-icon">🗑️</span> Delete
+                    </div>
+                `;
+                document.addEventListener('click', this.closeMenuOnClickOutside.bind(this));
+            }
+
+            closeMenuOnClickOutside(event) {
+                const menu = document.getElementById('historyMenu');
+                if (!menu.contains(event.target)) {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', this.closeMenuOnClickOutside);
+                }
+            }
+
+            renameSession(sessionId) {
+                this.renameSessionId = sessionId;
+                const session = this.history.find(item => item.id === sessionId);
+                const input = document.getElementById('renameInput');
+                input.value = session ? session.title : '';
+                document.getElementById('renameOverlay').style.display = 'flex';
+                document.getElementById('historyMenu').style.display = 'none';
+            }
+
+            confirmDeleteSession(sessionId) {
+                this.renameSessionId = sessionId;
+                const session = this.history.find(item => item.id === sessionId);
+                document.getElementById('confirmBody').textContent = `Are you sure you want to delete "${session ? session.title : 'this chat'}"?`;
+                document.getElementById('confirmOverlay').style.display = 'flex';
+                document.getElementById('historyMenu').style.display = 'none';
+            }
+
+            saveRename() {
+                if (this.renameSessionId) {
+                    const input = document.getElementById('renameInput');
+                    const newTitle = input.value.trim();
+                    if (newTitle) {
+                        const session = this.history.find(item => item.id === this.renameSessionId);
+                        if (session) {
+                            session.title = newTitle;
+                            localStorage.setItem('chatHistory', JSON.stringify(this.history));
+                            this.renderChatHistory();
+                        }
+                    }
+                }
+                document.getElementById('renameOverlay').style.display = 'none';
+            }
+
+            deleteSession() {
+                if (this.renameSessionId) {
+                    this.history = this.history.filter(item => item.id !== this.renameSessionId);
+                    localStorage.setItem('chatHistory', JSON.stringify(this.history));
+                    if (this.currentSessionId === this.renameSessionId) {
+                        this.startNewSession();
+                    } else {
+                        this.renderChatHistory();
+                    }
+                }
+                document.getElementById('confirmOverlay').style.display = 'none';
+                this.renderRecentList();
+            }
+
+            renderRecentList() {
+                const list = document.getElementById('recentList');
+                const heading = document.getElementById('recentHeading');
+                if (!list) return;
+                list.innerHTML = '';
+                // filter out placeholder-only items
+                const recent = (this.history || [])
+                  .filter(s => (s.title || '').toLowerCase() !== 'new chat' && (s.title || '').trim() !== '')
+                  // hide error-only titles from the recent section
+                  .filter(s => !/^error[:\s]/i.test(s.title || ''))
+                  .slice(0, 6);
+                if (recent.length === 0) {
+                    // Hide entire section if nothing valid
+                    if (heading) heading.style.display = 'none';
+                    list.innerHTML = '';
+                    return;
+                }
+                if (heading) heading.style.display = 'block';
+                recent.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'recent-item';
+                    item.title = s.title;
+                    item.innerHTML = `<div class=\"recent-bullet\">★</div><div class=\"recent-title\">${s.title}</div>`;
+                    item.onclick = () => this.loadSession(s.id);
+                    list.appendChild(item);
+                });
+            }
+
+            wireHeroPrompt() {
+                const heroInput = document.getElementById('heroInput');
+                const heroSend = document.getElementById('heroSend');
+                const heroAttach = document.getElementById('heroAttach');
+                const heroPreview = document.getElementById('heroPreview');
+                const heroPreviewList = document.getElementById('heroPreviewList');
+
+                if (!heroInput || !heroSend) return;
+                const submit = () => {
+                    const value = heroInput.value.trim();
+                    if (!value && (!this.files || this.files.length === 0)) return;
+                    // put text in main input and send through same flow
+                    const mainInput = document.getElementById('messageInput');
+                    if (mainInput) mainInput.value = value;
+                    heroInput.value = '';
+                    this.sendMessage();
+                };
+                heroSend.addEventListener('click', submit);
+                heroInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                });
+                if (heroAttach) {
+                    heroAttach.addEventListener('click', () => {
+                        const input = document.getElementById('fileInput');
+                        if (input) input.click();
+                    });
+                }
+            }
+
+            registerGlobalShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    const isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
+                    if ((isMac && e.metaKey && e.key.toLowerCase()==='k') || (!isMac && e.ctrlKey && e.key.toLowerCase()==='k')) {
+                        e.preventDefault();
+                        const heroInput = document.getElementById('heroInput');
+                        if (heroInput) { heroInput.focus(); return; }
+                        const mainInput = document.getElementById('messageInput');
+                        if (mainInput) mainInput.focus();
+                    }
+                });
+            }
+
+            // Basic code block rendering with copy button (detects triple backticks)
+            renderContentWithCodeBlocks(text) {
+                // Split by ``` and alternate between text and code
+                const parts = String(text).split(/```/);
+                const container = document.createElement('div');
+                for (let i=0; i<parts.length; i++) {
+                    const segment = parts[i];
+                    if (i % 2 === 1) {
+                        const pre = document.createElement('pre');
+                        const code = document.createElement('code');
+                        code.textContent = segment.trim();
+                        const copy = document.createElement('button');
+                        copy.textContent = 'Copy';
+                        copy.style.cssText = 'position:absolute; top:6px; right:6px; background:#3a3b42; color:#cbd5e1; border:1px solid #565869; padding:2px 8px; border-radius:6px; cursor:pointer;';
+                        const wrapper = document.createElement('div');
+                        wrapper.style.cssText = 'position:relative; border:1px solid var(--border); background:var(--panel); border-radius:10px; overflow:auto;';
+                        pre.style.cssText = 'margin:0; padding:12px 14px; white-space:pre-wrap;';
+                        copy.onclick = async () => { try { await navigator.clipboard.writeText(segment.trim()); copy.textContent='Copied'; setTimeout(()=>copy.textContent='Copy',900); } catch(_){} };
+                        pre.appendChild(code); wrapper.appendChild(pre); wrapper.appendChild(copy); container.appendChild(wrapper);
+                    } else if (segment.trim()) {
+                        const p = document.createElement('div');
+                        p.textContent = segment.trim();
+                        container.appendChild(p);
+                    }
+                }
+                return container;
+            }
+        }
+
+        // Initialize the interface
+        const codeEditor = new CodeEditorInterface();
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Modal actions
+            document.getElementById('confirmCancel').addEventListener('click', function() {
+                document.getElementById('confirmOverlay').style.display = 'none';
+            });
+            document.getElementById('confirmDelete').addEventListener('click', function() {
+                codeEditor.deleteSession();
+            });
+            document.getElementById('renameCancel').addEventListener('click', function() {
+                document.getElementById('renameOverlay').style.display = 'none';
+            });
+            document.getElementById('renameSave').addEventListener('click', function() {
+                codeEditor.saveRename();
+            });
+
+            // Theme initialization
+            codeEditor.applyTheme();
+        });
+    </script>
+</body>
+</html>

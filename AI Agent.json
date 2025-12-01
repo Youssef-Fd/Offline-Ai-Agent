@@ -1,0 +1,409 @@
+{
+  "name": "AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/upload-code",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        96
+      ],
+      "id": "53e1177f-2623-4e54-ade7-d61f18a5132c",
+      "name": "Webhook",
+      "webhookId": "9c0c3355-7f02-4264-a487-32feba481193",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}\n\nFiles to modify:\n{{ $('File Processor').item.json.content1 }}",
+        "options": {
+          "systemMessage": "You are an AI code editor that supports multiple programming languages.\n- Detect the programming language from the file content or extension\n- If the user asks to modify code, modify ONLY the relevant parts\n- Keep style consistent with the existing code\n- Do not remove unrelated functions or code\n- Return ONLY valid code in the appropriate language, nothing else\n- If no file is uploaded but user asks a general question, answer directly\n\nSupported languages: C, C++, C#, Java, JavaScript, Python, PHP, SQL, HTML, CSS, XML, JSON, Ruby, Perl, PowerShell, Visual Basic, VBScript, Lua, Markdown, INI, ASP, ASP.NET, XAML"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -96
+      ],
+      "id": "fc39e4bd-1078-4208-a5a5-0a82c2bdc1ea",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        16,
+        80
+      ],
+      "id": "d78392ba-bb51-461d-8f70-584845a4c383",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "IZ1Lwx1Rodh52rvb",
+          "name": "Ollama account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ /(\\b(add|insert|modify|change|fix|update|edit|write|overwrite|create|implement|generate)\\b.*\\b(function|code|file|program|implementation|script|class|method)\\b|\\binsert this\\b|\\boverwrite the file\\b|\\bwrite in this file\\b|\\bmodify this code\\b|\\bfix\\b|\\bchange\\b)/i.test() ? 0 : 1 }}"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -576,
+        96
+      ],
+      "id": "3c45ea6f-0316-4824-9374-2cc070531ac8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36b3cf36-f161-4a9d-8541-0b0914549b9c",
+              "name": "chatInput",
+              "value": "={{ $(\"Webhook\").item.json.body.chatInput; }} + \n{{ $(\"Webhook\").item.json.body.files[0].content; }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        -96
+      ],
+      "id": "3a9f6e9f-e4c2-467d-bf5a-7035de860c12",
+      "name": "Output 0"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        464,
+        448
+      ],
+      "id": "79d47c5a-5f1d-4a4f-ac81-908617ac0f13",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "TY6aZUJkX26bkAq7",
+          "name": "Ollama account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36b3cf36-f161-4a9d-8541-0b0914549b9c",
+              "name": "chatInput",
+              "value": "={{ $(\"Webhook\").item.json.body.chatInput; }} + \n{{ $(\"Webhook\").item.json.body.files[0].content; }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        240
+      ],
+      "id": "c7b1c7b8-dc86-471d-a1a5-bb379d6bbbe8",
+      "name": "Output 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = $json.output || $json.text;\nif (!text) {\n    throw new Error(\"No AI code found in the input\");\n}\n\n// Get file extension from original file to determine language\nconst originalFileName = $('File Processor').item.json.fileNames?.[0] || '';\nconst fileExtension = originalFileName.split('.').pop().toLowerCase();\n\n// Language-specific cleaning patterns\nconst languagePatterns = {\n  'c': /^(\\/\\/|\\/\\*|\\*|\\*\\/|#include|#define|#ifdef|#ifndef|#endif|typedef|struct|enum|void|int|float|double|char|return|if|else|for|while|do|switch|case|break|continue)/,\n  'cpp': /^(\\/\\/|\\/\\*|\\*|\\*\\/|#include|#define|using|namespace|class|public|private|protected|virtual|template|typename|const|static|void|int|float|double|char|bool|return|if|else|for|while|do|switch|case|break|continue|try|catch|throw|endl|std::)/,\n  'cs': /^(\\/\\/|\\/\\*|\\*|\\*\\/|using|namespace|class|public|private|protected|internal|static|void|int|float|double|decimal|char|string|bool|return|if|else|for|foreach|while|do|switch|case|break|continue|try|catch|finally|throw|new|var|=>)/,\n  'java': /^(\\/\\/|\\/\\*|\\*|\\*\\/|package|import|public|private|protected|class|interface|extends|implements|static|final|void|int|float|double|char|String|boolean|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new)/,\n  'js': /^(\\/\\/|\\/\\*|\\*|\\*\\/|import|export|from|function|const|let|var|class|extends|super|static|async|await|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|=>|console\\.|document\\.|window\\.)/,\n  'py': /^(#|import|from|def|class|self|@|lambda|if|elif|else|for|while|try|except|finally|with|as|return|yield|assert|pass|break|continue|global|nonlocal|print|raise)/,\n  'php': /^(<\\?php|\\?>|\\/\\/|#|\\/\\*|\\*|\\*\\/|namespace|use|class|interface|trait|public|private|protected|static|function|const|array|echo|print|return|if|else|elseif|for|foreach|while|do|switch|case|break|continue|try|catch|finally|throw|new|\\$)/,\n  'html': /^(<\\!DOCTYPE|<html|<head|<title|<body|<div|<span|<p|<a|<img|<script|<style|<link|<meta|<form|<input|<button|<select|<option|<textarea|<ul|<ol|<li|<table|<tr|<td|<th|<thead|<tbody|<tfoot|<!--|-->)/,\n  'css': /^(\\/\\*|\\*|\\*\\/|@import|@media|@keyframes|@font-face|@page|@charset|#|\\.|\\[|\\]|:|;|\\{|\\}|margin|padding|width|height|color|background|font|display|position|float|clear|overflow|border|content)/,\n  'xml': /^(<\\?xml|<\\!DOCTYPE|<!--|-->|<[A-Za-z]|</[A-Za-z]|\\/>)/,\n  'json': /^(\\{|\\}|\\[|\\]|\"|:|,|true|false|null|\\d)/,\n  'sql': /^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP BY|HAVING|ORDER BY|LIMIT|VALUES|SET|AND|OR|NOT|IN|BETWEEN|LIKE|AS|CASE|WHEN|THEN|END|UNION|ALL|DISTINCT|EXISTS)/,\n  'rb': /^(#|require|include|module|class|def|self|end|if|elsif|else|unless|for|while|until|do|begin|rescue|ensure|return|yield|next|break|redo|retry|puts|p|raise|attr_reader|attr_writer|attr_accessor|@|@@|\\$)/,\n  'pl': /^(#|use|package|require|sub|my|our|local|if|elsif|else|unless|for|foreach|while|until|do|next|last|redo|return|die|warn|print|say|qw|qr|m|s|tr|y|@|\\$|%)/,\n  'ps1': /^(#|\\$|function|param|begin|process|end|if|else|elseif|for|foreach|while|do|until|switch|case|default|break|continue|return|throw|try|catch|finally|Write-Host|Write-Output|Get-|Set-|Import-Module)/,\n  'vb': /^(('|REM)|Imports|Namespace|Class|Module|Sub|Function|Property|Dim|Private|Public|Protected|Friend|Static|Const|As|If|Then|Else|ElseIf|End|For|To|Next|While|Do|Until|Loop|Select|Case|Try|Catch|Finally|Throw|Return|With)/,\n  'vbs': /^(('|REM)|Dim|Const|If|Then|Else|ElseIf|End|For|To|Next|While|Do|Until|Loop|Select|Case|Function|Sub|Class|On Error|Resume|Exit)/,\n  'lua': /^(--|\\[\\[|\\]\\]|function|end|if|then|else|elseif|for|while|do|repeat|until|break|return|local|and|or|not|require|package\\.|io\\.|string\\.|table\\.)/,\n  'md': /^(#|\\*|\\+|\\-|\\d\\.|\\[|\\]|\\(|\\)|>|\\||`|\\*\\*|__|~~|<!--|-->)/,\n  'ini': /^(;|#|\\[|\\]|=)/,\n  'aspx': /^(<%@|<%|%>|<\\!DOCTYPE|<html|<head|<title|<body|<div|<span|<p|<a|<img|<script|<style|<link|<meta|<form|<input|<button|<select|<option|<textarea|<ul|<ol|<li|<table|<tr|<td|<th|<thead|<tbody|<tfoot|<!--|-->)/,\n  'cshtml': /^(@|<!--|-->|<\\!DOCTYPE|<html|<head|<title|<body|<div|<span|<p|<a|<img|<script|<style|<link|<meta|<form|<input|<button|<select|<option|<textarea|<ul|<ol|<li|<table|<tr|<td|<th|<thead|<tbody|<tfoot)/,\n  'xaml': /^(<\\!DOCTYPE|<Page|<Window|<UserControl|<ResourceDictionary|<Style|<Setter|<Grid|<StackPanel|<Canvas|<DockPanel|<WrapPanel|<Button|<TextBlock|<TextBox|<Label|<ListBox|<ComboBox|<Menu|<MenuItem|<Image|<Border|<Brush|<!--|-->)/\n};\n\n// Default pattern for unknown languages\nconst defaultPattern = /^(\\/\\/|\\/\\*|\\*|\\*\\/|#|<!--|-->|<[A-Za-z]|\\{|\\}|\\[|\\]|\"|function|class|def|import|package|public|private|protected|static|void|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new)/;\n\n// Select pattern based on file extension\nconst pattern = languagePatterns[fileExtension] || defaultPattern;\n\n// Split into lines\nconst lines = text.split(/\\r?\\n/);\n\n// Keep only lines that match language patterns or are empty\nconst cleanedLines = lines.filter(line => {\n    const trimmed = line.trim();\n    if (!trimmed) return true; // keep empty lines\n    if (pattern.test(trimmed)) return true; // keep language-specific patterns\n    return false; // remove all other lines\n});\n\n// Join back\nconst cleanedText = cleanedLines.join('\\n');\n\n// Convert to binary\nconst buffer = Buffer.from(cleanedText, 'utf-8');\n\nreturn [{\n    binary: {\n        newCode: {\n            data: buffer.toString('base64'),\n            fileName: 'modified_code.' + (fileExtension || 'txt'),\n            mimeType: 'text/plain'\n        }\n    },\n    json: {\n        message: \"The modified code has been written to the file\",\n        language: fileExtension || 'unknown'\n    }\n}];"
+      },
+      "id": "d2e140af-fa6a-4f74-b637-e71508180bef",
+      "name": "Code1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('File Processor').item.json.body?.sessionId || 'default-session' }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        80
+      ],
+      "id": "37ad76b5-651a-4b68-ab3e-d01fd1b677bb",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId }} "
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        448
+      ],
+      "id": "d4e69e4b-7643-48d7-8165-2002e3d03c88",
+      "name": "Simple Memory1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=C:\\\\Users\\\\Lenovo\\\\Documents\\\\TEST\\\\codePy.py",
+        "dataPropertyName": "newCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        592,
+        -96
+      ],
+      "id": "7593793d-81cf-4c6c-9bda-62bbd21c3b0e",
+      "name": "Write Files to Disk"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a helpful and concise assistant that supports multiple programming languages. Follow these rules strictly:\n\n1. No file uploaded & Simple Question: If the user asks a simple question and no file was uploaded in this conversation, answer the question directly. Do not mention files, uploads, or the absence of files.\n\n2. New Chat Context: Treat each new chat session independently. Do not refer to files from previous sessions unless the user explicitly brings them up.\n\n3. Direct Responses: Avoid disclaimers, preambles, or meta-commentary about your instructions.\n\n4. Language Expertise: When answering programming questions, provide accurate information for the specific language being discussed (C, C++, C#, Java, JavaScript, Python, PHP, SQL, HTML, CSS, XML, JSON, Ruby, Perl, PowerShell, Visual Basic, VBScript, Lua, Markdown, INI, ASP, ASP.NET, XAML).\n\n5. Exception - User Asks About a Missing File: Only mention a missing file if the user's question is specifically about a file that has not been uploaded."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        560,
+        240
+      ],
+      "id": "cadd8a77-a4ac-4bc9-a052-bdbba6af34c3",
+      "name": "AI Agent2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileBinary = $input.item.binary?.newCode;\nif (!fileBinary || !fileBinary.data) {\n  throw new Error(\"The file content is missing. Check the file read node.\");\n}\n\nconst Code = Buffer.from(fileBinary.data, 'base64').toString('utf8');\nconst language = $json.language || 'unknown';\n\nreturn [\n  {\n    json: {\n      content: `The modified ${language.toUpperCase()} code has been written to the file and here it is:\\n${Code}\\n`,\n      language: language\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        -96
+      ],
+      "id": "04e594d2-cda0-4cb0-966a-51345e7cef46",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  \"response\": $json.output || $json.message || $json.content|| \"Action completed successfully\",\n  \"codeContent\": $json.cleanedCode || \"No code available\",\n  \"isHtml\": false,\n  \"success\": true\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        112
+      ],
+      "id": "1eaecce0-e45f-4706-930d-ae88fa7636d1",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Output 0",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Output 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output 0": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output 1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Write Files to Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Files to Disk": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "b343b357-bd9b-4a5d-ac3b-6803acb49b6e",
+  "meta": {
+    "instanceId": "d0ee9807e9b1f9b31467793094b74d7c72ace57c502b14accc748a689082731e"
+  },
+  "id": "ursikD74wNorTP67",
+  "tags": []
+}
